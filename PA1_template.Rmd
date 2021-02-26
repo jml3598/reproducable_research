@@ -1,0 +1,135 @@
+---
+title: "Reproducable Research - Project 1"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+rm(list=ls())
+library(tidyverse)
+library(lubridate)
+activity <- read_csv('activity.csv')
+activity$interval_num <- as.integer(activity$interval)
+```
+
+## Total Number of Steps Per Day
+
+```{r}
+total_steps <- activity %>%
+    group_by(date) %>%
+    summarize(daily_steps = sum(steps, na.rm=TRUE))
+```
+
+```{r}
+ggplot(data=total_steps, mapping=aes(daily_steps)) + 
+    geom_histogram(binwidth=2000)+
+    xlab("Total number of steps taken each day") + 
+    ylab("Frequency")
+```
+
+# Mean and median total number of steps taken per day
+
+```{r}
+mean_daily_total <- mean(total_steps$daily_steps)
+median_daily_total <- median(total_steps$daily_steps) 
+print(paste("Mean Daily Steps:", as.character(mean_daily_total)))
+print(paste("Median Daily Steps:", as.character(median_daily_total)))
+
+```
+# Daily Activity Pattern - Average Steps per Interval
+
+```{r}
+daily_activity_pattern <- activity %>%
+    group_by(interval) %>%
+    summarize(interval_steps = round(mean(steps, na.rm=TRUE)),0)
+```
+
+```{r}
+ggplot(data=daily_activity_pattern, mapping=aes(x=interval, y=interval_steps)) + 
+    geom_line()+
+    xlab("5-minute Time Interval") + 
+    ylab("Average number of steps taken")
+```
+
+```{r}
+max_interval_steps <- daily_activity_pattern %>%
+    summarize(m = max(interval_steps, na.rm=TRUE))
+
+print(paste0("The 5 minute interval with the most steps is: ", max_interval_steps[[1]]))
+
+```
+# Impuation of missing values 
+The mean of each time inverval is used to fill in missing values.  
+
+```{r}
+activity2 <- activity %>%
+    mutate(steps = 
+               case_when(
+                   is.na(steps) ~ daily_activity_pattern$interval_steps[match(activity$interval,
+                   daily_activity_pattern$interval)], 
+        TRUE ~ as.numeric(steps)))
+
+```
+
+Steps Taken Per Day - with Missing Values Imputed with Mean
+```{r}
+imputed_total_steps <- activity2 %>%
+    group_by(date) %>%
+    summarize(daily_steps = sum(steps, na.rm=TRUE))
+```
+
+
+```{r}
+ggplot(data=imputed_total_steps, mapping=aes(daily_steps)) + 
+    geom_histogram(binwidth=2000)+
+    xlab("Total number of steps taken each day") + 
+    ylab("Frequency")
+
+```
+
+When we compare the mean and median total daily steps with the data set which has imputed values for missing data, the mean increases by 1411 steps and the median increases by 367.  
+
+```{r}
+mean_daily_total_imputed <- mean(imputed_total_steps$daily_steps)
+median_daily_total_imputed <- median(imputed_total_steps$daily_steps) 
+
+print(paste("Mean Daily Steps:", as.character(mean_daily_total)))
+print(paste("Median Daily Steps:", as.character(median_daily_total)))
+
+print(paste("Mean Daily Steps with Missing Values Imputed:", as.character(mean_daily_total_imputed)))
+print(paste("Median Daily Steps with Missing Values Imputed:", as.character(median_daily_total_imputed)))
+
+print(paste("Difference in Mean Daily Steps with Missing Values Imputed:", as.character(round(mean_daily_total_imputed - mean_daily_total, 0))))
+
+print(paste("Difference in Median Daily Steps with Missing Values Imputed:", as.character(median_daily_total_imputed - median_daily_total, 0)))
+```
+Comparison of Weekend Vs. Weekday Activity Patterns
+# 
+```{r}
+
+activity2 <- activity2 %>%
+    mutate(dayofweek = wday(date, label=TRUE))  %>%
+    mutate(weekday = 
+               if_else(
+                   substr(dayofweek, 1,1) == 'S', "weekend", 
+                   "weekday")) 
+
+activity2$weekday <- factor(activity2$weekday)
+
+weekend_intervals <-  activity2 %>%
+    group_by(interval, weekday) %>%
+    summarize(interval_steps = round(mean(steps, na.rm=TRUE)),0)
+
+```
+```{r}
+ggplot(data=weekend_intervals, mapping=aes(x=interval, y=interval_steps)) + 
+    geom_line()+
+    facet_grid(rows = vars(weekday)) + 
+    xlab("5-minute Time Interval") + 
+    ylab("Average number of steps taken")
+
+```
